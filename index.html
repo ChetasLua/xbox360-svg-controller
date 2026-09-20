@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive Xbox 360 controller drawn entirely in SVG, with no images or JavaScript in the artwork.">
+  <title>Xbox 360 SVG Controller</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #e2e4e7; color: #24332a; font-family: system-ui, sans-serif; }
+    nav { min-height: 52px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px 24px; padding: 14px 16px; background: #f2f3f4; }
+    a { color: #294c35; text-underline-offset: 3px; }
+    a:focus-visible { outline: 2px solid #487d35; outline-offset: 5px; }
+    main { width: 100%; height: calc(100vh - 52px); height: calc(100svh - 52px); min-height: 500px; }
+    object { display: block; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <nav aria-label="Project links">
+    <a href="https://github.com/ChetasLua/xbox360-svg-controller">Source on GitHub</a>
+    <a href="controller.svg" download>Download SVG</a>
+    <a href="controller.svg">Open standalone controller</a>
+  </nav>
+  <main>
+    <object data="controller.svg" type="image/svg+xml" aria-label="Interactive Xbox 360 SVG controller">
+      <a href="controller.svg">Open the standalone SVG controller.</a>
+    </object>
+  </main>
+</body>
+</html>
