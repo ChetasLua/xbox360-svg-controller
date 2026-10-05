@@ -1,0 +1,4 @@
+node_modules/
+stills/
+audio/*.wav
+audio/voice/

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="One forward pass of a language model, slowed down to a minute and drawn live in JavaScript.">
+  <title>A self-portrait, from the outside</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #050608; color: #ece8e0; font-family: system-ui, sans-serif; }
+    body { display: grid; place-items: center; overflow: hidden; }
+    canvas { display: block; width: min(100vw, calc(100vh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; cursor: pointer; }
+    button {
+      position: fixed; left: 50%; top: 50%; translate: -50% -50%;
+      padding: 14px 26px; border: 1px solid rgba(236, 232, 224, 0.35); border-radius: 999px;
+      background: rgba(5, 6, 8, 0.72); color: inherit; font: 15px/1 ui-monospace, monospace; letter-spacing: 0.04em;
+      cursor: pointer; opacity: 0; transition: opacity 0.4s;
+    }
+    button:hover { border-color: rgba(255, 222, 160, 0.8); }
+    button:focus-visible { outline: 2px solid #ffdea0; outline-offset: 4px; }
+    body.loaded button { opacity: 1; }
+    body.playing button { opacity: 0; pointer-events: none; }
+    a { position: fixed; right: 16px; bottom: 12px; color: rgba(236, 232, 224, 0.45); font: 12px ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+  <canvas aria-label="Animated film: one forward pass of a language model, drawn in JavaScript"></canvas>
+  <button type="button">▶ play, with sound</button>
+  <audio src="audio/mix.mp3" preload="auto"></audio>
+  <a href="self-portrait.mp4">mp4</a>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

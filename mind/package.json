@@ -1,0 +1,22 @@
+{
+  "name": "mind",
+  "private": true,
+  "type": "module",
+  "description": "A one-minute self-portrait of a language model, drawn frame by frame in JavaScript.",
+  "scripts": {
+    "voice": "node tools/voice-elevenlabs.mjs",
+    "voice:draft": "node tools/voice-draft.mjs",
+    "timeline": "node tools/timeline.mjs",
+    "score": "node tools/score.mjs",
+    "check": "node tools/render.mjs --check",
+    "render": "node tools/render.mjs --fps 60",
+    "build": "npm run timeline && npm run score && npm run check && npm run render",
+    "serve": "npx --yes serve -l 8000 ."
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  },
+  "optionalDependencies": {
+    "kokoro-js": "^1.2.1"
+  }
+}
