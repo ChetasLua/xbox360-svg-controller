@@ -12,8 +12,9 @@ ref_img = Image.open(SRC).convert("RGB")
 W, H = ref_img.size
 ref = np.asarray(ref_img, dtype=np.float32)
 
-LAYERS = [(26, 0.0), (15, 14.0), (15, 14.0), (9, 14.0), (9, 14.0), (6, 16.0), (6, 16.0), (4, 16.0), (4, 16.0), (3, 18.0), (3, 18.0), (2, 20.0), (2, 22.0)]   # (radius, error threshold)
-MAXLEN, MINLEN, FC = 16, 2, 0.55
+LAYERS = [(26, 0.0), (16, 12.0), (16, 12.0), (11, 12.0), (11, 12.0), (8, 13.0), (8, 13.0), (6, 14.0), (6, 14.0), (4, 16.0), (4, 16.0)]   # (radius, error threshold)
+MAXLEN, MINLEN, FC = 20, 4, 0.5
+STEP_K = 0.7
 
 canvas = Image.new("RGB", (W, H), tuple(int(v) for v in ref.reshape(-1, 3).mean(0)))
 strokes = []
@@ -28,19 +29,32 @@ def sobel(L):
     return gx, gy
 
 def draw_stroke(d, pts, r, col):
+    """Palette-knife mark: flat ends, mitred body (canvas lineCap='butt', lineJoin='round')."""
     if len(pts) == 1:
         x, y = pts[0]
-        d.ellipse([x - r, y - r, x + r, y + r], fill=col)
+        d.rectangle([x - r, y - r * 0.8, x + r, y + r * 0.8], fill=col)
         return
     d.line(pts, fill=col, width=int(round(2 * r)), joint="curve")
-    for x, y in (pts[0], pts[-1]):
-        d.ellipse([x - r, y - r, x + r, y + r], fill=col)
 
 for R, T in LAYERS:
     refb = np.asarray(ref_img.filter(ImageFilter.GaussianBlur(R * 0.3)), dtype=np.float32)
     cv = np.asarray(canvas, dtype=np.float32)
     D = np.sqrt(((cv - refb) ** 2).sum(-1))
-    gx, gy = sobel(lum(np.asarray(ref_img.filter(ImageFilter.GaussianBlur(max(1.0, R * 0.35))), dtype=np.float32)))
+    gx0, gy0 = sobel(lum(np.asarray(ref_img.filter(ImageFilter.GaussianBlur(max(1.5, R * 0.5))), dtype=np.float32)))
+    # structure tensor, smoothed: gives the dominant local edge direction even in flat areas
+    def blur(a, s):                                       # 3 box passes ~ gaussian
+        r = max(1, int(round(s * 0.9)))
+        for _ in range(3):
+            c = np.cumsum(np.pad(a, ((0, 0), (r + 1, r)), mode="edge"), axis=1)
+            a = (c[:, 2 * r + 1:] - c[:, :-2 * r - 1]) / (2 * r + 1)
+            c = np.cumsum(np.pad(a, ((r + 1, r), (0, 0)), mode="edge"), axis=0)
+            a = (c[2 * r + 1:, :] - c[:-2 * r - 1, :]) / (2 * r + 1)
+        return a
+    sig = max(4.0, R * 1.2)
+    Jxx, Jxy, Jyy = blur(gx0 * gx0, sig), blur(gx0 * gy0, sig), blur(gy0 * gy0, sig)
+    ang = 0.5 * np.arctan2(2 * Jxy, Jxx - Jyy)          # gradient direction
+    coh = np.sqrt((Jxx - Jyy) ** 2 + 4 * Jxy ** 2)
+    gx, gy = np.cos(ang) * (coh + 1e-3), np.sin(ang) * (coh + 1e-3)
     grid = max(2, R if R > 6 else (R * 2) // 3)
     layer = []
     for gy0 in range(0, H, grid):
@@ -59,7 +73,7 @@ for R, T in LAYERS:
                     if np.abs(refb[yi, xi] - cv[yi, xi]).sum() < np.abs(refb[yi, xi] - col).sum():
                         break
                 g1, g2 = gx[yi, xi], gy[yi, xi]
-                if g1 * g1 + g2 * g2 < 1.0:
+                if g1 * g1 + g2 * g2 < 1e-6:
                     break
                 dx, dy = -g2, g1
                 if ldx * dx + ldy * dy < 0:
@@ -67,11 +81,13 @@ for R, T in LAYERS:
                 dx, dy = FC * dx + (1 - FC) * ldx, FC * dy + (1 - FC) * ldy
                 n = (dx * dx + dy * dy) ** 0.5
                 dx, dy = dx / n, dy / n
-                x, y = x + R * dx, y + R * dy
+                x, y = x + R * STEP_K * dx, y + R * STEP_K * dy
                 if not (0 <= x < W and 0 <= y < H):
                     break
                 pts.append((x, y))
                 ldx, ldy = dx, dy
+            if len(pts) < MINLEN + 1:
+                continue
             layer.append((R, tuple(int(round(c)) for c in col), [(int(round(px)), int(round(py))) for px, py in pts]))
     random.shuffle(layer)
     cvs = np.asarray(canvas, dtype=np.float32).copy()
