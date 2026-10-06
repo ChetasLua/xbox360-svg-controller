@@ -1,0 +1,12 @@
+{
+  "name": "i-smell-fear",
+  "private": true,
+  "description": "30s canvas animation: Codex vs Clawd race (offline renderer uses Playwright)",
+  "scripts": {
+    "serve": "python3 -m http.server 8765",
+    "render": "node tools/render.cjs && tools/mux.sh"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  }
+}

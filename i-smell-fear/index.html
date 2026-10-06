@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I Smell Fear — Codex vs Clawd</title>
+<style>
+  @font-face { font-family: 'Anton'; src: url(fonts/Anton.woff2) format('woff2'); }
+  @font-face { font-family: 'Press Start 2P'; src: url(fonts/PressStart2P.woff2) format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url(fonts/JetBrainsMono-Regular.woff2) format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url(fonts/JetBrainsMono-Bold.woff2) format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 800; src: url(fonts/JetBrainsMono-ExtraBold.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 500; src: url(fonts/Inter-500.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 600; src: url(fonts/Inter-600.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url(fonts/Inter-700.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 800; src: url(fonts/Inter-800.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 900; src: url(fonts/Inter-900.woff2) format('woff2'); }
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #050507; color: #eee; font-family: Inter, system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  #stage { position: relative; height: min(92vh, 125vw); aspect-ratio: 1080 / 1350; }
+  canvas { width: 100%; height: 100%; display: block; border-radius: 10px; background: #000; }
+  #play { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.55);
+          font: 800 28px Inter, system-ui, sans-serif; letter-spacing: .5px; cursor: pointer; border: 0; color: #fff; border-radius: 10px; }
+  #play span { padding: 18px 30px; border-radius: 999px; background: #d97757; color: #160904; }
+  #bar { width: min(92vh * .8, 100vw - 32px); height: 6px; background: #222; border-radius: 3px; cursor: pointer; }
+  #bar i { display: block; height: 100%; width: 0; background: #d97757; border-radius: 3px; }
+  body.render #bar, body.render #play { display: none; }
+  body.render { display: block; }
+  body.render #stage { height: 1350px; width: 1080px; }
+  body.render canvas { border-radius: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="1080" height="1350"></canvas>
+  <button id="play" type="button"><span>▶ Play with sound</span></button>
+</div>
+<div id="bar"><i></i></div>
+<audio id="a" src="audio/mix.mp3" preload="auto"></audio>
+<script src="src/timeline.js"></script>
+<script src="src/lib.js"></script>
+<script src="src/characters.js"></script>
+<script src="src/scenes.js"></script>
+<script src="src/main.js"></script>
+<script>
+(async function () {
+  const render = new URLSearchParams(location.search).has('render');
+  if (render) document.body.classList.add('render');
+  const faces = ['40px Anton', '20px "Press Start 2P"', '800 20px "JetBrains Mono"', '700 20px "JetBrains Mono"',
+    '500 20px Inter', '600 20px Inter', '700 20px Inter', '800 20px Inter', '900 20px Inter', '40px "Noto Color Emoji"'];
+  await Promise.all(faces.map(f => document.fonts.load(f, 'AaΩ✂↻★🧠🪙⚡').catch(() => {})));
+  await document.fonts.ready;
+  window.renderFrame(0);
+  window.ready = true;
+  if (render) return;
+  const audio = document.getElementById('a'), btn = document.getElementById('play'), bar = document.querySelector('#bar i');
+  let raf = 0;
+  const loop = () => { window.renderFrame(audio.currentTime); bar.style.width = (audio.currentTime / TL.duration * 100) + '%'; if (!audio.paused) raf = requestAnimationFrame(loop); };
+  btn.onclick = () => { btn.style.display = 'none'; audio.play(); loop(); };
+  audio.onended = () => { btn.style.display = ''; btn.firstChild.textContent = '↻ Replay'; audio.currentTime = 0; };
+  document.getElementById('c').onclick = () => { if (audio.paused) { btn.style.display = 'none'; audio.play(); loop(); } else { audio.pause(); cancelAnimationFrame(raf); } };
+  document.getElementById('bar').onclick = ev => { const r = ev.currentTarget.getBoundingClientRect(); audio.currentTime = (ev.clientX - r.left) / r.width * TL.duration; window.renderFrame(audio.currentTime); loop(); };
+  addEventListener('keydown', ev => { if (ev.code === 'Space') { ev.preventDefault(); document.getElementById('c').click(); } });
+})();
+</script>
+</body>
+</html>

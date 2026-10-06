@@ -1,0 +1,6 @@
+# regenerable intermediates (tools/process_voice.py, make_sfx.py, mix.py, render.cjs)
+audio/mix.wav
+audio/vo/L?.wav
+audio/sfx/
+out/video_only.mp4
+node_modules/
