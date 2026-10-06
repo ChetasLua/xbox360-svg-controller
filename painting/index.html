@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Figure Study in Oil</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { max-width: 100vw; max-height: 100vh; display: block; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+<canvas id="c" width="962" height="828"></canvas>
+<script>
+// Expressionist figure study — painted procedurally.
+// 1) block in an underpainting of the composition, 2) blur it so colours melt,
+// 3) lay thousands of short loaded-brush dabs that sample the underpainting,
+// 4) finish with dark contour strokes, impasto highlights and canvas grain.
+
+const W = 962, H = 828;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+// ---------- seeded randomness + smooth noise ----------
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const R = (a, b) => a + (b - a) * rnd();
+const perm = Array.from({ length: 512 }, (_, i) => i % 256);
+for (let i = 255; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+const grad = (h, x, y) => ((h & 1) ? -x : x) + ((h & 2) ? -y : y);
+function noise(x, y) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  x -= Math.floor(x); y -= Math.floor(y);
+  const u = fade(x), v = fade(y);
+  const a = perm[X] + Y, b = perm[X + 1] + Y;
+  const l1 = grad(perm[a], x, y) + u * (grad(perm[b], x - 1, y) - grad(perm[a], x, y));
+  const l2 = grad(perm[a + 1], x, y - 1) + u * (grad(perm[b + 1], x - 1, y - 1) - grad(perm[a + 1], x, y - 1));
+  return l1 + v * (l2 - l1);
+}
+
+// ---------- palette ----------
+const P = {
+  cream: '#f6e6c8', ivory: '#fff4dc', peach: '#eab48a', apricot: '#e59a5c',
+  orange: '#d9772f', rust: '#b9532c', brick: '#9c3b2a', magenta: '#a8456a',
+  plum: '#6e2c4a', aubergine: '#43203a', umber: '#5a3324', lilac: '#c9a2b4',
+  rose: '#d98a86', ochre: '#e0b04a', sky: '#93b8c9', sky2: '#7ea6c2',
+  teal: '#86b1bf', navy: '#2f4f86', deep: '#1d2b52'
+};
+
+// ---------- underpainting ----------
+const under = document.createElement('canvas');
+under.width = W; under.height = H;
+const u = under.getContext('2d');
+
+function blob(c, color, pts, alpha = 1) {
+  // closed smooth shape: curve through the midpoints, each vertex acting as control point
+  c.globalAlpha = alpha; c.fillStyle = color; c.beginPath();
+  const n = pts.length, mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const m0 = mid(pts[n - 1], pts[0]);
+  c.moveTo(m0[0], m0[1]);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], m = mid(p, pts[(i + 1) % n]);
+    c.quadraticCurveTo(p[0], p[1], m[0], m[1]);
+  }
+  c.closePath(); c.fill(); c.globalAlpha = 1;
+}
+function ell(c, color, x, y, rx, ry, rot = 0, alpha = 1) {
+  c.globalAlpha = alpha; c.fillStyle = color; c.beginPath();
+  c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+}
+function radial(c, x, y, r, stops, alpha = 1) {
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  stops.forEach(([o, col]) => g.addColorStop(o, col));
+  c.globalAlpha = alpha; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+}
+
+function underpaint() {
+  // background: pale blue wall, deep blue in upper right corner
+  const bg = u.createLinearGradient(560, 0, 962, 828);
+  bg.addColorStop(0, P.sky2); bg.addColorStop(0.45, P.sky); bg.addColorStop(1, P.sky2);
+  u.fillStyle = bg; u.fillRect(0, 0, W, H);
+  blob(u, P.navy, [[640, 0], [962, 0], [962, 70], [800, 110], [690, 120], [620, 60]]);
+  blob(u, P.deep, [[760, 0], [962, 0], [962, 30], [820, 40]], 0.7);
+
+  // the whole warm figure mass
+  u.fillStyle = P.apricot; u.beginPath();   // hard-cornered so it reaches the canvas edges
+  [[0, 0], [700, 0], [760, 130], [850, 230], [860, 380], [900, 560], [962, 760], [962, 828], [0, 828]]
+    .forEach(([x, y], i) => i ? u.lineTo(x, y) : u.moveTo(x, y));
+  u.closePath(); u.fill();
+  blob(u, P.apricot, [[700, 0], [760, 130], [850, 230], [860, 380], [900, 560], [962, 760], [700, 700], [600, 200]]);
+
+  // hair: dark mass across the top with ochre/red streaks
+  blob(u, P.umber, [[60, 0], [760, 0], [790, 60], [700, 110], [560, 120], [420, 90], [300, 60], [150, 50]]);
+  blob(u, P.brick, [[330, 20], [600, 0], [690, 40], [620, 90], [470, 80]], 0.8);
+  blob(u, P.ochre, [[560, 20], [700, 40], [720, 70], [600, 60]], 0.7);
+
+  // far left: shadowed side, plum/umber
+  blob(u, P.aubergine, [[0, 40], [150, 60], [150, 260], [90, 420], [60, 600], [0, 640]]);
+  blob(u, P.plum, [[0, 380], [100, 400], [130, 560], [70, 700], [0, 720]], 0.8);
+  blob(u, P.lilac, [[10, 120], [70, 140], [60, 260], [10, 240]], 0.6);
+
+  // raised arm / shoulder ball on the left, lilac in shade, rimmed dark
+  ell(u, P.aubergine, 255, 210, 120, 120);
+  radial(u, 240, 200, 115, [[0, P.lilac], [0.6, P.rose], [1, P.plum]]);
+  ell(u, P.cream, 225, 150, 45, 40, -0.4, 0.55);
+
+  // upper chest / shoulder knot, centre
+  radial(u, 430, 220, 140, [[0, P.ivory], [0.35, P.peach], [0.8, P.orange], [1, P.rust]]);
+  ell(u, P.ivory, 420, 190, 55, 48, -0.6, 0.85);
+  radial(u, 340, 110, 70, [[0, P.brick], [1, 'rgba(156,59,42,0)']]);
+
+  // right breast: big warm form, cream highlight top-right, rust underside
+  radial(u, 690, 290, 160, [[0, P.peach], [0.55, P.orange], [1, P.rust]]);
+  ell(u, P.cream, 770, 300, 70, 75, 0.4, 0.95);
+  ell(u, P.ivory, 785, 300, 40, 50, 0.4, 0.85);
+  ell(u, P.brick, 795, 240, 14, 12, 0, 1);            // nipple
+  blob(u, P.brick, [[590, 370], [700, 410], [830, 380], [810, 430], [690, 450], [600, 420]], 0.9);
+  blob(u, P.plum, [[620, 400], [720, 430], [820, 400], [800, 440], [700, 455]], 0.6);
+
+  // sternum / central shadow wedge between forms
+  blob(u, P.rust, [[470, 300], [540, 260], [600, 320], [560, 420], [500, 470], [460, 400]], 0.75);
+  blob(u, P.peach, [[480, 330], [560, 300], [580, 360], [520, 430]], 0.6);
+
+  // right arm running down the right edge, light along its top
+  blob(u, P.orange, [[640, 430], [760, 440], [860, 560], [940, 720], [962, 828], [800, 828], [720, 650]]);
+  blob(u, P.cream, [[700, 470], [760, 480], [860, 640], [930, 800], [880, 810], [780, 640]], 0.6);
+  blob(u, P.plum, [[600, 430], [650, 440], [720, 640], [780, 828], [720, 828], [650, 640]], 0.9);
+  blob(u, P.magenta, [[560, 460], [610, 470], [660, 640], [700, 828], [640, 828], [600, 640]], 0.5);
+
+  // left forearm diagonal coming down from the shoulder ball
+  blob(u, P.peach, [[300, 280], [380, 330], [300, 520], [230, 700], [170, 828], [80, 828], [170, 620], [240, 430]]);
+  blob(u, P.cream, [[330, 320], [360, 340], [260, 560], [190, 760], [160, 760], [230, 540]], 0.7);
+  blob(u, P.rust, [[150, 300], [220, 330], [160, 520], [100, 700], [60, 700], [110, 500]], 0.6);
+
+  // torso / belly: peach centre with magenta-red shadows
+  blob(u, P.peach, [[380, 380], [560, 440], [640, 600], [660, 828], [280, 828], [320, 600]]);
+  radial(u, 470, 600, 170, [[0, P.cream], [0.5, P.peach], [1, 'rgba(234,180,138,0)']], 0.85);
+  blob(u, P.magenta, [[330, 420], [390, 450], [350, 600], [300, 760], [260, 760], [300, 580]], 0.75);
+  blob(u, P.orange, [[300, 640], [380, 660], [360, 828], [270, 828]], 0.7);
+  blob(u, P.brick, [[540, 620], [600, 640], [640, 828], [580, 828]], 0.5);
+
+  // melt it so the dabs pick up soft transitions
+  const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
+  const t = tmp.getContext('2d');
+  t.filter = 'blur(10px)'; t.drawImage(under, 0, 0);
+  u.globalAlpha = 0.65; u.drawImage(tmp, 0, 0); u.globalAlpha = 1;
+}
+
+// ---------- brush ----------
+let udata;
+function sample(x, y) {
+  x = Math.max(0, Math.min(W - 1, x | 0)); y = Math.max(0, Math.min(H - 1, y | 0));
+  const i = (y * W + x) * 4;
+  return [udata[i], udata[i + 1], udata[i + 2]];
+}
+const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const shade = (c, k) => c.map(v => Math.max(0, Math.min(255, v * k)));
+const lighten = (c, k) => c.map(v => Math.min(255, v + (255 - v) * k));
+
+// stroke direction: follows the luminance contour (perpendicular to gradient) + a little noise,
+// which makes dabs wrap around the forms like the painter's hand did.
+function lum(x, y) { const c = sample(x, y); return 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]; }
+function angleAt(x, y) {
+  const d = 6;
+  const gx = lum(x + d, y) - lum(x - d, y), gy = lum(x, y + d) - lum(x, y - d);
+  const n = noise(x * 0.004, y * 0.004) * 1.2;
+  if (Math.hypot(gx, gy) < 4) return 1.1 + n;           // flat areas: loose diagonal hatching
+  return Math.atan2(gy, gx) + Math.PI / 2 + n * 0.35;
+}
+
+function dab(x, y, len, wid, col, ang, opacity = 0.95) {
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(ang);
+  // body of the stroke: a fat rounded slab, slightly tapered
+  ctx.fillStyle = rgb(col, opacity);
+  ctx.beginPath();
+  ctx.moveTo(-len / 2, -wid / 2 * 0.8);
+  ctx.quadraticCurveTo(0, -wid / 2 * 1.1, len / 2, -wid / 2 * 0.7);
+  ctx.quadraticCurveTo(len / 2 + wid * 0.45, 0, len / 2, wid / 2 * 0.7);
+  ctx.quadraticCurveTo(0, wid / 2 * 1.05, -len / 2, wid / 2 * 0.8);
+  ctx.quadraticCurveTo(-len / 2 - wid * 0.4, 0, -len / 2, -wid / 2 * 0.8);
+  ctx.fill();
+  // bristle ridges
+  ctx.lineWidth = 1;
+  for (let k = 0; k < 2; k++) {
+    const yy = R(-wid * 0.35, wid * 0.35);
+    ctx.strokeStyle = rgb(rnd() < 0.5 ? lighten(col, 0.18) : shade(col, 0.88), 0.25);
+    ctx.beginPath(); ctx.moveTo(-len / 2 + 2, yy); ctx.lineTo(len / 2 - 2, yy + R(-1.5, 1.5)); ctx.stroke();
+  }
+  // impasto: light catches the top edge, shadow under the bottom edge
+  ctx.strokeStyle = rgb(lighten(col, 0.45), 0.45); ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(-len / 2 + 2, -wid / 2 * 0.75); ctx.quadraticCurveTo(0, -wid / 2 * 1.02, len / 2 - 1, -wid / 2 * 0.62); ctx.stroke();
+  ctx.strokeStyle = rgb(shade(col, 0.6), 0.35); ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-len / 2 + 2, wid / 2 * 0.78); ctx.quadraticCurveTo(0, wid / 2 * 1.0, len / 2 - 1, wid / 2 * 0.62); ctx.stroke();
+  ctx.restore();
+}
+
+function pass(count, lenR, widR, jitter, opacity) {
+  for (let i = 0; i < count; i++) {
+    const x = R(-10, W + 10), y = R(-10, H + 10);
+    let c = sample(x, y);
+    // painterly colour jitter: warm/cool temperature shifts, not just brightness
+    const j = R(-jitter, jitter), temp = R(-jitter, jitter) * 0.8;
+    c = [c[0] + j + temp, c[1] + j, c[2] + j - temp];
+    dab(x, y, R(...lenR), R(...widR), c, angleAt(x, y) + R(-0.25, 0.25), opacity);
+  }
+}
+
+// dark, juicy contour strokes the painter used to carve forms out
+function contour(points, width, color, alpha = 0.9) {
+  const base = [parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16)];
+  // walk the polyline and lay overlapping loaded dabs along it
+  for (let i = 1; i < points.length; i++) {
+    const [x0, y0] = points[i - 1], [x1, y1] = points[i];
+    const segLen = Math.hypot(x1 - x0, y1 - y0), ang = Math.atan2(y1 - y0, x1 - x0);
+    const step = width * 1.3;
+    for (let d = 0; d < segLen; d += step) {
+      const t = d / segLen, j = R(-14, 14);
+      const c = [base[0] + j, base[1] + j * 0.6, base[2] + j];
+      dab(x0 + (x1 - x0) * t + R(-3, 3), y0 + (y1 - y0) * t + R(-3, 3),
+          width * R(2.2, 3.2), width * R(1.1, 1.6), c, ang + R(-0.25, 0.25), alpha);
+    }
+  }
+}
+
+// thick loaded highlight swipes (palette-knife whites)
+function swipe(x, y, len, wid, ang, col) {
+  const c = [parseInt(col.slice(1, 3), 16), parseInt(col.slice(3, 5), 16), parseInt(col.slice(5, 7), 16)];
+  dab(x, y, len, wid, c, ang, 0.92);
+}
+
+function grain() {
+  const img = ctx.getImageData(0, 0, W, H), d = img.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    // woven canvas texture: two crossing sine weaves + fine noise
+    const weave = (Math.sin(x * 1.9) * Math.sin(y * 1.9)) * 5 + (rnd() - 0.5) * 8;
+    d[i] += weave; d[i + 1] += weave; d[i + 2] += weave;
+  }
+  ctx.putImageData(img, 0, 0);
+  // gentle vignette
+  const v = ctx.createRadialGradient(W * 0.5, H * 0.5, H * 0.35, W * 0.5, H * 0.5, H * 0.85);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(20,10,10,0.28)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+
+function paint() {
+  underpaint();
+  udata = u.getImageData(0, 0, W, H).data;
+
+  // toned ground
+  ctx.drawImage(under, 0, 0);
+
+  // big loose blocking strokes -> medium -> small detail dabs
+  pass(700, [70, 120], [30, 48], 16, 0.92);
+  pass(1300, [40, 72], [20, 32], 20, 0.94);
+  pass(1500, [22, 40], [12, 20], 24, 0.95);
+
+  // carve the forms with dark plum/aubergine contours
+  contour([[150, 120], [135, 200], [150, 280], [195, 320], [260, 330]], 16, P.aubergine);       // shoulder ball, left/under
+  contour([[260, 330], [310, 300], [345, 255]], 9, P.plum, 0.7);
+  contour([[430, 330], [455, 370], [470, 410]], 7, '#3a2a55', 0.8);                              // sternum notch
+  contour([[600, 300], [610, 360], [650, 410], [720, 420], [790, 410], [835, 370]], 14, P.plum);  // under right breast
+  contour([[560, 440], [600, 520], [630, 600], [665, 700], [700, 828]], 13, P.plum, 0.85);         // right arm inner edge
+  contour([[150, 300], [120, 420], [90, 560], [60, 700]], 12, P.aubergine, 0.75);                  // far left edge
+  contour([[330, 430], [320, 520], [300, 640], [280, 760]], 10, P.magenta, 0.7);                   // torso left shadow
+  contour([[835, 230], [855, 300], [850, 380]], 6, P.brick, 0.75);                                 // right breast outer rim
+
+  // palette-knife lights
+  swipe(420, 185, 70, 34, -0.5, P.ivory);
+  swipe(395, 215, 48, 22, -0.9, P.cream);
+  swipe(775, 290, 80, 42, 1.1, P.ivory);
+  swipe(800, 330, 50, 26, 1.3, P.cream);
+  swipe(230, 150, 50, 26, -0.6, P.cream);
+  swipe(305, 420, 60, 18, 2.0, P.cream);
+  swipe(255, 560, 70, 18, 2.0, P.ivory);
+  swipe(480, 560, 70, 26, 1.7, P.cream);
+  swipe(470, 700, 60, 24, 1.6, P.cream);
+  swipe(820, 640, 70, 20, 1.15, P.cream);
+  swipe(880, 760, 60, 18, 1.2, P.ivory);
+  swipe(640, 40, 70, 10, 0.25, '#f2c44a');   // hair glints
+  swipe(600, 60, 60, 8, 0.35, '#e8a23a');
+  swipe(795, 240, 16, 14, 0, [0x8a, 0x2c, 0x22].reduce((s, v) => s + v.toString(16).padStart(2, '0'), '#'));
+
+  // final scatter of tiny accents for vibration
+  pass(350, [12, 22], [7, 12], 30, 0.9);
+
+  grain();
+
+  // black strip along the top, like the photographed canvas
+  ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, 16);
+}
+
+paint();
+</script>
+</body>
+</html>
